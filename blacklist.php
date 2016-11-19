@@ -3,11 +3,12 @@ error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
 require_once "mt/mt_config.php";
-include('../app/config/base.php');
+require_once "../app/config/base.php";
 
 $db = new PDO("mysql:host={$server};dbname={$database}", $user_name, $password, array(PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES 'UTF8'"));
 
 $arr_blacklist = array();
+$arr_whitelist = array();
 if ($_POST) {
     $campaign_id = (int)$_POST['campaign'];
     $i = 1;
@@ -28,7 +29,6 @@ if ($_POST) {
 
     $i = 1;
     $tmp_arr = array();
-    $arr_whitelist = array();
     foreach($_POST['imt_select1_wl'] as $key => $filter) {
         if ($filter) {
             $tmp_arr[] = array($_POST['imt_select1_wl'][$key], $_POST['imt_select2_wl'][$key], $_POST['imt_value_wl'][$key]);
@@ -251,11 +251,7 @@ HTML;
 
 $html_filter2 = "<div style=\"margin-top: 5px;\">$html_filter AND $html_filter AND $html_filter</div>";
 for($i = 1; $i <= 10; $i++) {
-    if ($i == 1) {
-        $html_filter3 = $html_filter2;
-    } else {
-        $html_filter3 .= "<div style=\"margin-top: 5px;\">OR</div>" . $html_filter2;
-    }
+    $html_filter3 = $i == 1 ? $html_filter2 : $html_filter3 . "<div style=\"margin-top: 5px;\">OR</div>" . $html_filter2;;
 }
 
 $html_filter_wl = <<<HTML
@@ -282,11 +278,7 @@ HTML;
 
 $html_filter2_wl = "<div style=\"margin-top: 5px;\">$html_filter_wl AND $html_filter_wl AND $html_filter_wl</div>";
 for($i = 1; $i <= 10; $i++) {
-    if ($i == 1) {
-        $html_filter3_wl = $html_filter2_wl;
-    } else {
-        $html_filter3_wl .= "<div style=\"margin-top: 5px;\">OR</div>" . $html_filter2_wl;
-    }
+    $html_filter3_wl = $i == 1 ? $html_filter2_wl : $html_filter3_wl . "<div style=\"margin-top: 5px;\">OR</div>" . $html_filter2_wl;
 }
 
 ?>
@@ -300,7 +292,7 @@ for($i = 1; $i <= 10; $i++) {
     <!-- The above 3 meta tags *must* come first in the head; any other head content must come *after* these tags -->
     <meta name="description" content="">
     <meta name="author" content="">
-    <link rel="icon" href="favicon.ico">
+    <link rel="icon" href="../favicon.ico">
 
     <title>True iMobiTrax Plugin</title>
 
@@ -431,7 +423,7 @@ for($i = 1; $i <= 10; $i++) {
                         <div class="col-md-12 text-center" style="margin-top: 20px;">
                             <h1 class="cover-heading text-center">BlackList</h1>
                             <div id="selects_bl">
-                            <?=$html_filter3?>
+                                <?=$html_filter3?>
                             </div>
                         </div>
                         <div class="col-md-12 text-center" style="margin-top: 20px;">
