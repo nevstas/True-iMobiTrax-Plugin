@@ -11,7 +11,7 @@
 
 Выставляем эти параметры и получаем блеклист айдишников площадок, который задаем в источнике трафика. Также генерируется JavaScript код, который выполнив на странице статистики подсветит площадки. Для этого в Mozilla или Chrome на странице статистики нажимаем F12, и в разделе Console вставляем данный код и выполняем.
 
-[#Скачать](https://github.com/nevstas/True-iMobiTrax-Plugin/archive/master.zip)
+# [Скачать](https://github.com/nevstas/True-iMobiTrax-Plugin/archive/master.zip)
 
 ![1](http://nevep.ru/screenshots/True_iMobiTrax_Plugin_-_2016-11-19_19.56.43.png)
 
