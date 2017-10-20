@@ -1,16 +1,24 @@
 <?php
+session_start();
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
-require_once "mt/mt_config.php";
-require_once "../app/config/base.php";
-
+require_once "../mt/mt_config.php";
 $db = new PDO("mysql:host={$server};dbname={$database}", $user_name, $password, array(PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES 'UTF8'"));
 
 $arr_blacklist = array();
 $arr_whitelist = array();
+
+$campaign_id = isset($_SESSION['tip']['campaign']) ? $_SESSION['tip']['campaign'] : 0;
 if ($_POST) {
     $campaign_id = (int)$_POST['campaign'];
+    $_SESSION['tip']['campaign'] = $campaign_id;
+    $_SESSION['tip'][$campaign_id]['imt_select1'] = $_POST['imt_select1'];
+    $_SESSION['tip'][$campaign_id]['imt_select2'] = $_POST['imt_select2'];
+    $_SESSION['tip'][$campaign_id]['imt_value'] = $_POST['imt_value'];
+    $_SESSION['tip'][$campaign_id]['imt_select1_wl'] = $_POST['imt_select1_wl'];
+    $_SESSION['tip'][$campaign_id]['imt_select2_wl'] = $_POST['imt_select2_wl'];
+    $_SESSION['tip'][$campaign_id]['imt_value_wl'] = $_POST['imt_value_wl'];
     $i = 1;
     $tmp_arr = array();
     $arr_blacklist = array();
@@ -41,19 +49,6 @@ if ($_POST) {
         }
         $i++;
     }
-    $plugin_filter = array(
-        'imt_select1' => $_POST['imt_select1'],
-        'imt_select2' => $_POST['imt_select2'],
-        'imt_value' => $_POST['imt_value'],
-        'imt_select1_wl' => $_POST['imt_select1_wl'],
-        'imt_select2_wl' => $_POST['imt_select2_wl'],
-        'imt_value_wl' => $_POST['imt_value_wl'],
-    );
-
-    $cookie = isset($_COOKIE['plugin_filter']) ? json_decode($_COOKIE['plugin_filter'], true) : array();
-    $cookie[$_POST['campaign']] = $plugin_filter;
-    $cookie['campaign'] = $campaign_id;
-    setcookie("plugin_filter", json_encode($cookie), time() + (365 * 24 * 60 * 60));
 }
 
 $stmt = $db->prepare(
@@ -160,7 +155,7 @@ foreach ($data as $tmp) {
     $lp_clicks = $tmp['clicks2'];
     $lp_ctr = $tmp['clicks2'] * 100 / $tmp['clicks'];
     $leads = $tmp['lead'];
-    $offer_cvr  = $leads / $lp_clicks;
+    $offer_cvr  = $lp_clicks ? $leads / $lp_clicks : 0;
     $lp_cvr = $leads / $clicks;
     $rev = $tmp['lead'] * $data_camp['offer_payout'];
     $spend = $tmp['clicks'] * $data_camp['camp_cpc'];
@@ -226,59 +221,72 @@ $stmt = $db->prepare(
 );
 $stmt->execute();
 $campaigns_list = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-$html_filter = <<<HTML
-    <select class="form-control imt_select1" name="imt_select1[]" style="display: inline-block; width: 120px;">
-        <option value=""></option>
-        <option value="clicks">Clicks</option>
-        <option value="lp_clicks">LP clicks</option>
-        <option value="lp_ctr">LP CTR</option>
-        <option value="leads">Leads</option>
-        <option value="offer_cvr">Offer CVR</option>
-        <option value="lp_cvr">LP CVR</option>
-        <option value="rev">Rev.</option>
-        <option value="spend">Spend</option>
-        <option value="epc">EPC</option>
-        <option value="roi">ROI</option>
-    </select>
-    <select class="form-control imt_select2" name="imt_select2[]" style="display: inline-block; width: 60px;">
-        <option value="greater">&gt;</option>
-        <option value="less">&lt;</option>
-        <option value="equal">=</option>
-    </select>
-    <input type="text" class="form-control imt_value" name="imt_value[]" style="display: inline-block; width: 80px;">
-HTML;
-
-$html_filter2 = "<div style=\"margin-top: 5px;\">$html_filter AND $html_filter AND $html_filter</div>";
+$t = 0;
+$html_filter3 = '';
 for($i = 1; $i <= 10; $i++) {
-    $html_filter3 = $i == 1 ? $html_filter2 : $html_filter3 . "<div style=\"margin-top: 5px;\">OR</div>" . $html_filter2;;
+    $f = array();
+    for($k = 1; $k <= 3; $k++) {
+        $item_select1 = isset($_SESSION['tip'][$campaign_id]['imt_select1'][$t]) ? $_SESSION['tip'][$campaign_id]['imt_select1'][$t] : '';
+        $item_select2 = isset($_SESSION['tip'][$campaign_id]['imt_select2'][$t]) ? $_SESSION['tip'][$campaign_id]['imt_select2'][$t] : '';
+        $item_imt_value = isset($_SESSION['tip'][$campaign_id]['imt_value'][$t]) ? $_SESSION['tip'][$campaign_id]['imt_value'][$t] : '';
+        $f[] = '
+        <select class="form-control imt_select1" name="imt_select1[]" style="display: inline-block; width: 120px;">
+            <option value=""></option>
+            <option value="clicks"' . ($item_select1 == 'clicks' ? ' selected' : '') . '>Clicks</option>
+            <option value="lp_clicks"' . ($item_select1 == 'lp_clicks' ? ' selected' : '') . '>LP clicks</option>
+            <option value="lp_ctr"' . ($item_select1 == 'lp_ctr' ? ' selected' : '') . '>LP CTR</option>
+            <option value="leads"' . ($item_select1 == 'leads' ? ' selected' : '') . '>Leads</option>
+            <option value="offer_cvr"' . ($item_select1 == 'offer_cvr' ? ' selected' : '') . '>Offer CVR</option>
+            <option value="lp_cvr"' . ($item_select1 == 'lp_cvr' ? ' selected' : '') . '>LP CVR</option>
+            <option value="rev"' . ($item_select1 == 'rev' ? ' selected' : '') . '>Rev.</option>
+            <option value="spend"' . ($item_select1 == 'spend' ? ' selected' : '') . '>Spend</option>
+            <option value="epc"' . ($item_select1 == 'epc' ? ' selected' : '') . '>EPC</option>
+            <option value="roi"' . ($item_select1 == 'roi' ? ' selected' : '') . '>ROI</option>
+        </select>
+        <select class="form-control imt_select2" name="imt_select2[]" style="display: inline-block; width: 60px;">
+            <option value="greater"' . ($item_select2 == 'greater' ? ' selected' : '') . '>&gt;</option>
+            <option value="less"' . ($item_select2 == 'less' ? ' selected' : '') . '>&lt;</option>
+            <option value="equal"' . ($item_select2 == 'equal' ? ' selected' : '') . '>=</option>
+        </select>
+        <input type="text" class="form-control imt_value" name="imt_value[]" style="display: inline-block; width: 80px;" value="' . htmlspecialchars($item_imt_value) . '">';
+        $t++;
+    }
+    $html_filter2 = "<div style=\"margin-top: 5px;\">" . implode(' AND ', $f) . "</div>";
+    $html_filter3 = $html_filter3 ? $html_filter3 . "<div style=\"margin-top: 5px;\">OR</div>" . $html_filter2 : $html_filter2;
 }
 
-$html_filter_wl = <<<HTML
-    <select class="form-control imt_select1_wl" name="imt_select1_wl[]" style="display: inline-block; width: 120px;">
-        <option value=""></option>
-        <option value="clicks">Clicks</option>
-        <option value="lp_clicks">LP clicks</option>
-        <option value="lp_ctr">LP CTR</option>
-        <option value="leads">Leads</option>
-        <option value="offer_cvr">Offer CVR</option>
-        <option value="lp_cvr">LP CVR</option>
-        <option value="rev">Rev.</option>
-        <option value="spend">Spend</option>
-        <option value="epc">EPC</option>
-        <option value="roi">ROI</option>
-    </select>
-    <select class="form-control imt_select2_wl" name="imt_select2_wl[]" style="display: inline-block; width: 60px;">
-        <option value="greater">&gt;</option>
-        <option value="less">&lt;</option>
-        <option value="equal">=</option>
-    </select>
-    <input type="text" class="form-control imt_value_wl" name="imt_value_wl[]" style="display: inline-block; width: 80px;">
-HTML;
-
-$html_filter2_wl = "<div style=\"margin-top: 5px;\">$html_filter_wl AND $html_filter_wl AND $html_filter_wl</div>";
+$t = 0;
+$html_filter3_wl = '';
 for($i = 1; $i <= 10; $i++) {
-    $html_filter3_wl = $i == 1 ? $html_filter2_wl : $html_filter3_wl . "<div style=\"margin-top: 5px;\">OR</div>" . $html_filter2_wl;
+    $f = array();
+    for($k = 1; $k <= 3; $k++) {
+        $item_select1_wl = isset($_SESSION['tip'][$campaign_id]['imt_select1_wl'][$t]) ? $_SESSION['tip'][$campaign_id]['imt_select1_wl'][$t] : '';
+        $item_select2_wl = isset($_SESSION['tip'][$campaign_id]['imt_select2_wl'][$t]) ? $_SESSION['tip'][$campaign_id]['imt_select2_wl'][$t] : '';
+        $item_imt_value_wl = isset($_SESSION['tip'][$campaign_id]['imt_value_wl'][$t]) ? $_SESSION['tip'][$campaign_id]['imt_value_wl'][$t] : '';
+        $f[] = '
+        <select class="form-control imt_select1_wl" name="imt_select1_wl[]" style="display: inline-block; width: 120px;">
+            <option value=""></option>
+            <option value="clicks"' . ($item_select1_wl == 'clicks' ? ' selected' : '') . '>Clicks</option>
+            <option value="lp_clicks"' . ($item_select1_wl == 'lp_clicks' ? ' selected' : '') . '>LP clicks</option>
+            <option value="lp_ctr"' . ($item_select1_wl == 'lp_ctr' ? ' selected' : '') . '>LP CTR</option>
+            <option value="leads"' . ($item_select1_wl == 'leads' ? ' selected' : '') . '>Leads</option>
+            <option value="offer_cvr"' . ($item_select1_wl == 'offer_cvr' ? ' selected' : '') . '>Offer CVR</option>
+            <option value="lp_cvr"' . ($item_select1_wl == 'lp_cvr' ? ' selected' : '') . '>LP CVR</option>
+            <option value="rev"' . ($item_select1_wl == 'rev' ? ' selected' : '') . '>Rev.</option>
+            <option value="spend"' . ($item_select1_wl == 'spend' ? ' selected' : '') . '>Spend</option>
+            <option value="epc"' . ($item_select1_wl == 'epc' ? ' selected' : '') . '>EPC</option>
+            <option value="roi"' . ($item_select1_wl == 'roi' ? ' selected' : '') . '>ROI</option>
+        </select>
+        <select class="form-control imt_select2_wl" name="imt_select2_wl[]" style="display: inline-block; width: 60px;">
+            <option value="greater"' . ($item_select2_wl == 'greater' ? ' selected' : '') . '>&gt;</option>
+            <option value="less"' . ($item_select2_wl == 'less' ? ' selected' : '') . '>&lt;</option>
+            <option value="equal"' . ($item_select2_wl == 'equal' ? ' selected' : '') . '>=</option>
+        </select>
+        <input type="text" class="form-control imt_value_wl" name="imt_value_wl[]" style="display: inline-block; width: 80px;" value="' . htmlspecialchars($item_imt_value_wl) . '">';
+        $t++;
+    }
+    $html_filter2_wl = "<div style=\"margin-top: 5px;\">" . implode(' AND ', $f) . "</div>";
+    $html_filter3_wl = $html_filter3_wl ? $html_filter3_wl . "<div style=\"margin-top: 5px;\">OR</div>" . $html_filter2_wl : $html_filter2_wl;
 }
 
 ?>
@@ -297,17 +305,17 @@ for($i = 1; $i <= 10; $i++) {
     <title>True iMobiTrax Plugin</title>
 
     <!-- Bootstrap core CSS -->
-    <link href="https://getbootstrap.com/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="css/bootstrap.min.css" rel="stylesheet">
 
     <!-- IE10 viewport hack for Surface/desktop Windows 8 bug -->
-    <link href="https://getbootstrap.com/assets/css/ie10-viewport-bug-workaround.css" rel="stylesheet">
+    <link href="css/ie10-viewport-bug-workaround.css" rel="stylesheet">
 
     <!-- Custom styles for this template -->
-    <link href="https://getbootstrap.com/examples/cover/cover.css" rel="stylesheet">
+    <link href="css/cover.css" rel="stylesheet">
 
     <!-- Just for debugging purposes. Don't actually copy these 2 lines! -->
-    <!--[if lt IE 9]><script src="https://getbootstrap.com/assets/js/ie8-responsive-file-warning.js"></script><![endif]-->
-    <script src="https://getbootstrap.com/assets/js/ie-emulation-modes-warning.js"></script>
+    <!--[if lt IE 9]><script src="js/ie8-responsive-file-warning.js"></script><![endif]-->
+    <script src="js/ie-emulation-modes-warning.js"></script>
 
     <!-- HTML5 shim and Respond.js for IE8 support of HTML5 elements and media queries -->
     <!--[if lt IE 9]>
@@ -323,73 +331,6 @@ for($i = 1; $i <= 10; $i++) {
 <!-- IE10 viewport hack for Surface/desktop Windows 8 bug -->
 <script src="https://maxcdn.bootstrapcdn.com/js/ie10-viewport-bug-workaround.js"></script>
 
-<script>
-    function getCookie(name) {
-        var matches = document.cookie.match(new RegExp(
-            "(?:^|; )" + name.replace(/([\.$?*|{}\(\)\[\]\\\/\+^])/g, '\\$1') + "=([^;]*)"
-        ));
-        return matches ? decodeURIComponent(matches[1]) : undefined;
-    }
-
-    $(document).ready(function() {
-        if (getCookie('plugin_filter')) {
-            cook = jQuery.parseJSON(getCookie('plugin_filter'));
-            if (cook['campaign'] !== undefined) {
-                updateValues(cook['campaign']);
-                $("#item1").val(cook['campaign']);
-            } else {
-                updateValues($("#item1").val());
-            }
-        } else {
-            updateValues($("#item1").val());
-        }
-
-        $("#item1").change(function() {
-            updateValues($("#item1").val());
-        });
-    });
-
-    function updateValues(campaign_id) {
-        if (getCookie('plugin_filter')) {
-            cook = jQuery.parseJSON(getCookie('plugin_filter'));
-            if (cook[campaign_id] !== undefined) {
-                $.each(cook[campaign_id].imt_select1, function(index, value) {
-                    if (value) {
-                        $('.imt_select1:eq(' + (index) + ')').val(value);
-                    }
-                });
-                $.each(cook[campaign_id].imt_select2, function(index, value) {
-                    if (value) {
-                        $('.imt_select2:eq(' + (index) + ')').val(value);
-                    }
-                });
-                $.each(cook[campaign_id].imt_value, function(index, value) {
-                    if (value) {
-                        $('.imt_value:eq(' + (index) + ')').val(value);
-                    }
-                });
-
-                $.each(cook[campaign_id].imt_select1_wl, function(index, value) {
-                    if (value) {
-                        $('.imt_select1_wl:eq(' + (index) + ')').val(value);
-                    }
-                });
-                $.each(cook[campaign_id].imt_select2_wl, function(index, value) {
-                    if (value) {
-                        $('.imt_select2_wl:eq(' + (index) + ')').val(value);
-                    }
-                });
-                $.each(cook[campaign_id].imt_value_wl, function(index, value) {
-                    if (value) {
-                        $('.imt_value_wl:eq(' + (index) + ')').val(value);
-                    }
-                });
-            }
-        }
-    }
-
-
-</script>
 <div class="site-wrapper">
 
     <div class="site-wrapper-inner">
@@ -402,8 +343,6 @@ for($i = 1; $i <= 10; $i++) {
                     <nav>
                         <ul class="nav masthead-nav">
                             <li class="active"><a href="campaigns.php">iMobiTrax</a></li>
-                            <!--<li><a href="#">Features</a></li>
-                            <li><a href="#">Contact</a></li>-->
                         </ul>
                     </nav>
                 </div>
@@ -414,9 +353,9 @@ for($i = 1; $i <= 10; $i++) {
                     <form method="post" action="">
                         <div class="form-group text-center" style="margin: 0 auto;">
                             <label for="item1">Campaign:</label>
-                            <select class="form-control" id="item1" name="campaign" style="display: inline-block; width: 200px;">
+                            <select class="form-control" id="item1" name="campaign" style="display: inline-block; width: 400px;">
                                 <? foreach($campaigns_list as $campaign): ?>
-                                <option value="<?=$campaign['camp_id']?>"><?=$campaign['camp_name']?></option>
+                                <option value="<?=$campaign['camp_id']?>"<? echo $campaign_id == $campaign['camp_id'] ? " selected" : ""; ?>><?=$campaign['camp_name']?></option>
                                 <? endforeach; ?>
                             </select>
                         </div>
@@ -468,7 +407,7 @@ for($i = 1; $i <= 10; $i++) {
 
             <div class="">
                 <div class="inner">
-                    <p>Nevep.ru 2016</p>
+                    <p>Nevep.ru 2016-<?=date('Y')?></p>
                 </div>
             </div>
 
